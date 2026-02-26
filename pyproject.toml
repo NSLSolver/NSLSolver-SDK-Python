@@ -46,8 +46,8 @@ dev = [
 [project.urls]
 Homepage = "https://nslsolver.com"
 Documentation = "https://docs.nslsolver.com"
-Repository = "https://github.com/nslsolver/nslsolver-python"
-Issues = "https://github.com/nslsolver/nslsolver-python/issues"
+Repository = "https://github.com/NSLSolver/NSLSolver-SDK-Python"
+Issues = "https://github.com/NSLSolver/NSLSolver-SDK-Python/issues"
 
 [tool.setuptools.packages.find]
 include = ["nslsolver*"]
