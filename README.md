@@ -106,6 +106,10 @@ Both clients support context managers (`with` / `async with`) for session cleanu
 - `requests` (sync client)
 - `aiohttp` (async client, optional)
 
+## Documentation
+
+For more information, check out the full documentation at https://docs.nslsolver.com
+
 ## License
 
 MIT
