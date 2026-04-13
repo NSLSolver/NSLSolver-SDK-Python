@@ -1,6 +1,6 @@
 """NSLSolver Python SDK."""
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 from .client import NSLSolver
 from .exceptions import (
@@ -12,7 +12,7 @@ from .exceptions import (
     SolveError,
     TypeNotAllowedError,
 )
-from .types import BalanceResult, ChallengeResult, TurnstileResult
+from .types import BalanceResult, ChallengeResult, KasadaConfig, KasadaResult, TurnstileResult
 
 
 def __getattr__(name: str) -> object:
@@ -29,6 +29,8 @@ __all__ = [
     "AsyncNSLSolver",
     "TurnstileResult",
     "ChallengeResult",
+    "KasadaConfig",
+    "KasadaResult",
     "BalanceResult",
     "NSLSolverError",
     "AuthenticationError",

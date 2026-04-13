@@ -29,6 +29,40 @@ class ChallengeResult:
 
 
 @dataclass(frozen=True)
+class KasadaConfig:
+    """Kasada endpoint configuration."""
+
+    p_js_path: str
+    fp_host: str
+    tl_host: str
+    cd_constant: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class KasadaResult:
+    """Result of a Kasada solve."""
+
+    headers: Dict[str, str]
+    type: str = "kasada"
+
+    @property
+    def ct(self) -> Optional[str]:
+        return self.headers.get("x-kpsdk-ct")
+
+    @property
+    def cd(self) -> Optional[str]:
+        return self.headers.get("x-kpsdk-cd")
+
+    @property
+    def v(self) -> Optional[str]:
+        return self.headers.get("x-kpsdk-v")
+
+    @property
+    def h(self) -> Optional[str]:
+        return self.headers.get("x-kpsdk-h")
+
+
+@dataclass(frozen=True)
 class BalanceResult:
     """Account balance and capability info."""
 

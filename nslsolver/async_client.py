@@ -21,7 +21,7 @@ from .exceptions import (
     SolveError,
     TypeNotAllowedError,
 )
-from .types import BalanceResult, ChallengeResult, TurnstileResult
+from .types import BalanceResult, ChallengeResult, KasadaConfig, KasadaResult, TurnstileResult
 
 logger = logging.getLogger("nslsolver")
 
@@ -56,7 +56,7 @@ class AsyncNSLSolver:
         self._headers = {
             "X-API-Key": self._api_key,
             "Content-Type": "application/json",
-            "User-Agent": "nslsolver-python/1.0.0 (async)",
+            "User-Agent": "nslsolver-python/1.1.0 (async)",
         }
 
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -121,6 +121,40 @@ class AsyncNSLSolver:
             cookies=data.get("cookies", {}),
             user_agent=data.get("user_agent", ""),
             type=data.get("type", "challenge"),
+        )
+
+    async def solve_kasada(
+        self,
+        url: str,
+        user_agent: str,
+        ua_version: int,
+        kasada_config: KasadaConfig,
+        proxy: Optional[str] = None,
+    ) -> KasadaResult:
+        """Solve a Kasada challenge."""
+        config: Dict[str, Any] = {
+            "p_js_path": kasada_config.p_js_path,
+            "fp_host": kasada_config.fp_host,
+            "tl_host": kasada_config.tl_host,
+        }
+        if kasada_config.cd_constant is not None:
+            config["cd_constant"] = kasada_config.cd_constant
+
+        payload: Dict[str, Any] = {
+            "type": "kasada",
+            "url": url,
+            "user_agent": user_agent,
+            "ua_version": ua_version,
+            "kasada_config": config,
+        }
+        if proxy is not None:
+            payload["proxy"] = proxy
+
+        data = await self._request("POST", "/solve", json_body=payload)
+
+        return KasadaResult(
+            headers=data.get("headers", {}),
+            type=data.get("type", "kasada"),
         )
 
     async def get_balance(self) -> BalanceResult:

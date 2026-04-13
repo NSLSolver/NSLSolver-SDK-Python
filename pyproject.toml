@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nslsolver"
-version = "1.0.0"
+version = "1.1.0"
 description = "Official Python SDK for the NSLSolver captcha solving API"
 readme = "README.md"
 license = {text = "MIT"}
@@ -12,7 +12,7 @@ requires-python = ">=3.8"
 authors = [
     {name = "NSLSolver", email = "support@nslsolver.com"},
 ]
-keywords = ["captcha", "turnstile", "cloudflare", "solver", "nslsolver"]
+keywords = ["captcha", "turnstile", "cloudflare", "kasada", "solver", "nslsolver"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",

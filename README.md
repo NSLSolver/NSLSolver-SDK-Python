@@ -32,6 +32,22 @@ result = solver.solve_challenge(
 )
 print(result.cookies, result.user_agent)
 
+# Kasada
+from nslsolver import KasadaConfig
+
+result = solver.solve_kasada(
+    url="https://example.com/api",
+    user_agent="Mozilla/5.0 ...",
+    ua_version=131,
+    kasada_config=KasadaConfig(
+        p_js_path="/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3/p.js",
+        fp_host="https://fp.example.com",
+        tl_host="https://tl.example.com",
+    ),
+)
+print(result.headers)
+print(result.ct, result.cd)
+
 # Balance
 balance = solver.get_balance()
 print(balance.balance, balance.max_threads, balance.allowed_types)
