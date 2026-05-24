@@ -15,7 +15,7 @@ from .exceptions import (
     SolveError,
     TypeNotAllowedError,
 )
-from .types import BalanceResult, ChallengeResult, KasadaConfig, KasadaResult, TurnstileResult
+from .types import AkamaiResult, BalanceResult, ChallengeResult, KasadaConfig, KasadaResult, TurnstileResult
 
 logger = logging.getLogger("nslsolver")
 
@@ -86,6 +86,7 @@ class NSLSolver:
 
         return TurnstileResult(
             token=data["token"],
+            cost=float(data.get("cost", 0.0)),
             type=data.get("type", "turnstile"),
         )
 
@@ -109,6 +110,8 @@ class NSLSolver:
         return ChallengeResult(
             cookies=data.get("cookies", {}),
             user_agent=data.get("user_agent", ""),
+            token=data.get("token") or None,
+            cost=float(data.get("cost", 0.0)),
             type=data.get("type", "challenge"),
         )
 
@@ -143,20 +146,61 @@ class NSLSolver:
 
         return KasadaResult(
             headers=data.get("headers", {}),
+            cost=float(data.get("cost", 0.0)),
             type=data.get("type", "kasada"),
         )
 
+    def solve_akamai(
+        self,
+        url: str,
+        user_agent: str,
+        proxy: str,
+    ) -> AkamaiResult:
+        """Solve an Akamai Bot Manager challenge.
+
+        Both ``user_agent`` and ``proxy`` are required. The returned ``_abck``
+        cookie is bound to the proxy's egress IP — replay on the same proxy
+        and user agent.
+        """
+        payload: Dict[str, Any] = {
+            "type": "akamai",
+            "url": url,
+            "user_agent": user_agent,
+            "proxy": proxy,
+        }
+
+        data = self._request("POST", "/solve", json_body=payload)
+
+        return AkamaiResult(
+            cookies=data.get("cookies", {}),
+            cost=float(data.get("cost", 0.0)),
+            type=data.get("type", "akamai"),
+        )
+
     def get_balance(self) -> BalanceResult:
-        """Retrieve current account balance."""
+        """Retrieve current account balance, plan, and CPM usage."""
         data = self._request("GET", "/balance")
 
-        known_keys = {"balance", "max_threads", "allowed_types"}
+        known_keys = {
+            "success",
+            "balance",
+            "unlimited",
+            "allowed_types",
+            "max_cpm",
+            "current_cpm",
+            "cpm_limit",
+            "unlimited_expires_at",
+        }
         extra = {k: v for k, v in data.items() if k not in known_keys}
 
         return BalanceResult(
             balance=float(data["balance"]),
-            max_threads=int(data["max_threads"]),
+            unlimited=bool(data.get("unlimited", False)),
             allowed_types=list(data.get("allowed_types", [])),
+            max_cpm=int(data.get("max_cpm", 0)),
+            current_cpm=int(data.get("current_cpm", 0)),
+            cpm_limit=int(data.get("cpm_limit", data.get("max_cpm", 0))),
+            unlimited_expires_at=data.get("unlimited_expires_at"),
             extra=extra,
         )
 

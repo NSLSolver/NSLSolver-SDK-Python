@@ -48,9 +48,12 @@ result = solver.solve_kasada(
 print(result.headers)
 print(result.ct, result.cd)
 
-# Balance
+# Balance + live CPM usage
 balance = solver.get_balance()
-print(balance.balance, balance.max_threads, balance.allowed_types)
+print(balance.balance, balance.allowed_types)
+print(f"CPM: {balance.current_cpm}/{balance.cpm_limit}")
+if balance.unlimited:
+    print(f"Unlimited expires at: {balance.unlimited_expires_at}")
 ```
 
 ## Async
