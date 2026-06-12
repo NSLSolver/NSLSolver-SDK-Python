@@ -12,7 +12,15 @@ from .exceptions import (
     SolveError,
     TypeNotAllowedError,
 )
-from .types import AkamaiResult, BalanceResult, ChallengeResult, KasadaConfig, KasadaResult, TurnstileResult
+from .types import (
+    AkamaiResult,
+    BalanceResult,
+    ChallengeResult,
+    KasadaConfig,
+    KasadaResult,
+    RecaptchaV3Result,
+    TurnstileResult,
+)
 
 
 def __getattr__(name: str) -> object:
@@ -32,6 +40,7 @@ __all__ = [
     "KasadaConfig",
     "KasadaResult",
     "AkamaiResult",
+    "RecaptchaV3Result",
     "BalanceResult",
     "NSLSolverError",
     "AuthenticationError",

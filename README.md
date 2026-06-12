@@ -48,12 +48,27 @@ result = solver.solve_kasada(
 print(result.headers)
 print(result.ct, result.cd)
 
-# Balance + live CPM usage
+# Akamai Bot Manager (user_agent + proxy required)
+result = solver.solve_akamai(
+    url="https://www.example.com",
+    user_agent="Mozilla/5.0 ...",
+    proxy="http://user:pass@host:port",
+)
+print(result.abck)  # the _abck cookie
+
+# reCAPTCHA v3 / Enterprise (site_key + url + proxy required)
+result = solver.solve_recaptchav3(
+    site_key="6Lc...",
+    url="https://example.com/login",
+    proxy="http://user:pass@host:port",
+    action="login",       # optional; defaults to "verify"
+    enterprise=False,     # set True for reCAPTCHA Enterprise
+)
+print(result.token, result.action)
+
+# Balance
 balance = solver.get_balance()
-print(balance.balance, balance.allowed_types)
-print(f"CPM: {balance.current_cpm}/{balance.cpm_limit}")
-if balance.unlimited:
-    print(f"Unlimited expires at: {balance.unlimited_expires_at}")
+print(f"Balance: {balance.balance} {balance.currency}")
 ```
 
 ## Async

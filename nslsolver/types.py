@@ -1,7 +1,7 @@
 """Response types for the NSLSolver API."""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 
 @dataclass(frozen=True)
@@ -10,6 +10,7 @@ class TurnstileResult:
 
     token: str
     cost: float = 0.0
+    solve_time_ms: Optional[int] = None
     type: str = "turnstile"
 
     def __str__(self) -> str:
@@ -84,22 +85,37 @@ class AkamaiResult:
 
 
 @dataclass(frozen=True)
+class RecaptchaV3Result:
+    """Result of a reCAPTCHA v3 (and reCAPTCHA Enterprise) solve.
+
+    ``token`` is the verification token to submit to the target site. ``action``
+    echoes the action the token was bound to (when returned). ``type`` reflects
+    the response discriminator as returned by the API (the API returns the
+    hyphenated slug ``recaptcha-v3``, not the request discriminator
+    ``recaptchav3``).
+    """
+
+    token: str
+    action: Optional[str] = None
+    cost: float = 0.0
+    type: Optional[str] = None
+
+    def __str__(self) -> str:
+        return self.token
+
+
+@dataclass(frozen=True)
 class BalanceResult:
-    """Account balance, plan flags, and live CPM (captchas-per-minute) usage."""
+    """Account balance for the API key.
+
+    The documented ``GET /balance`` response is ``{balance, currency}``. Any
+    additional plan/usage fields the API may return (e.g. ``unlimited``,
+    ``allowed_types``, CPM counters) are preserved verbatim in ``extra``.
+    """
 
     balance: float
-    unlimited: bool
-    allowed_types: List[str]
-    max_cpm: int
-    current_cpm: int
-    cpm_limit: int
-    unlimited_expires_at: Optional[str] = None
+    currency: str = "USD"
     extra: Dict[str, object] = field(default_factory=dict)
 
     def __str__(self) -> str:
-        return (
-            f"Balance: {self.balance}, "
-            f"Unlimited: {self.unlimited}, "
-            f"CPM: {self.current_cpm}/{self.cpm_limit}, "
-            f"Allowed Types: {self.allowed_types}"
-        )
+        return f"Balance: {self.balance} {self.currency}"

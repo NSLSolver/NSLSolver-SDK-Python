@@ -21,7 +21,15 @@ from .exceptions import (
     SolveError,
     TypeNotAllowedError,
 )
-from .types import AkamaiResult, BalanceResult, ChallengeResult, KasadaConfig, KasadaResult, TurnstileResult
+from .types import (
+    AkamaiResult,
+    BalanceResult,
+    ChallengeResult,
+    KasadaConfig,
+    KasadaResult,
+    RecaptchaV3Result,
+    TurnstileResult,
+)
 
 logger = logging.getLogger("nslsolver")
 
@@ -53,6 +61,7 @@ class AsyncNSLSolver:
         self._timeout = aiohttp.ClientTimeout(total=timeout)
         self._max_retries = max_retries
         self._session: Optional[aiohttp.ClientSession] = None
+        self._session_lock = asyncio.Lock()
         self._headers = {
             "X-API-Key": self._api_key,
             "Content-Type": "application/json",
@@ -61,10 +70,14 @@ class AsyncNSLSolver:
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
-                headers=self._headers,
-                timeout=self._timeout,
-            )
+            async with self._session_lock:
+                # Double-check inside the lock so only one session is created
+                # even if several coroutines race on the first call.
+                if self._session is None or self._session.closed:
+                    self._session = aiohttp.ClientSession(
+                        headers=self._headers,
+                        timeout=self._timeout,
+                    )
         return self._session
 
     # -- Public API ----------------------------------------------------------
@@ -75,8 +88,6 @@ class AsyncNSLSolver:
         url: str,
         action: Optional[str] = None,
         cdata: Optional[str] = None,
-        proxy: Optional[str] = None,
-        user_agent: Optional[str] = None,
     ) -> TurnstileResult:
         """Solve a Cloudflare Turnstile captcha."""
         payload: Dict[str, Any] = {
@@ -88,16 +99,15 @@ class AsyncNSLSolver:
             payload["action"] = action
         if cdata is not None:
             payload["cdata"] = cdata
-        if proxy is not None:
-            payload["proxy"] = proxy
-        if user_agent is not None:
-            payload["user_agent"] = user_agent
 
         data = await self._request("POST", "/solve", json_body=payload)
+        self._require(data, "token")
 
+        solve_time_ms = data.get("solve_time_ms")
         return TurnstileResult(
             token=data["token"],
             cost=float(data.get("cost", 0.0)),
+            solve_time_ms=int(solve_time_ms) if solve_time_ms is not None else None,
             type=data.get("type", "turnstile"),
         )
 
@@ -188,34 +198,73 @@ class AsyncNSLSolver:
             type=data.get("type", "akamai"),
         )
 
-    async def get_balance(self) -> BalanceResult:
-        """Retrieve current account balance, plan, and CPM usage."""
-        data = await self._request("GET", "/balance")
+    async def solve_recaptchav3(
+        self,
+        site_key: str,
+        url: str,
+        proxy: str,
+        action: Optional[str] = None,
+        enterprise: bool = False,
+        user_agent: Optional[str] = None,
+    ) -> RecaptchaV3Result:
+        """Solve a reCAPTCHA v3 (or reCAPTCHA Enterprise) challenge.
 
-        known_keys = {
-            "success",
-            "balance",
-            "unlimited",
-            "allowed_types",
-            "max_cpm",
-            "current_cpm",
-            "cpm_limit",
-            "unlimited_expires_at",
+        ``site_key``, ``url`` and ``proxy`` are required. ``action`` defaults to
+        ``verify`` server-side when omitted. Set ``enterprise=True`` for the
+        reCAPTCHA Enterprise variant (``enterprise.js``).
+        """
+        payload: Dict[str, Any] = {
+            "type": "recaptchav3",
+            "site_key": site_key,
+            "url": url,
+            "proxy": proxy,
         }
+        if action is not None:
+            payload["action"] = action
+        if enterprise:
+            payload["enterprise"] = True
+        if user_agent is not None:
+            payload["user_agent"] = user_agent
+
+        data = await self._request("POST", "/solve", json_body=payload)
+        self._require(data, "token")
+
+        return RecaptchaV3Result(
+            token=data["token"],
+            action=data.get("action"),
+            cost=float(data.get("cost", 0.0)),
+            type=data.get("type"),
+        )
+
+    async def get_balance(self) -> BalanceResult:
+        """Retrieve the current account balance for the API key.
+
+        Returns the documented ``{balance, currency}`` response. Any additional
+        fields the API returns are preserved in ``BalanceResult.extra``.
+        """
+        data = await self._request("GET", "/balance")
+        self._require(data, "balance")
+
+        known_keys = {"success", "balance", "currency"}
         extra = {k: v for k, v in data.items() if k not in known_keys}
 
         return BalanceResult(
-            balance=float(data["balance"]),
-            unlimited=bool(data.get("unlimited", False)),
-            allowed_types=list(data.get("allowed_types", [])),
-            max_cpm=int(data.get("max_cpm", 0)),
-            current_cpm=int(data.get("current_cpm", 0)),
-            cpm_limit=int(data.get("cpm_limit", data.get("max_cpm", 0))),
-            unlimited_expires_at=data.get("unlimited_expires_at"),
+            balance=float(data.get("balance", 0.0)),
+            currency=str(data.get("currency", "USD")),
             extra=extra,
         )
 
     # -- Internal ------------------------------------------------------------
+
+    @staticmethod
+    def _require(data: Dict[str, Any], key: str) -> None:
+        """Raise an SDK error if a required key is absent from a 200 body."""
+        if key not in data:
+            raise SolveError(
+                message=f"Malformed API response: missing '{key}'.",
+                status_code=200,
+                response_body=data,
+            )
 
     async def _request(
         self,
@@ -248,6 +297,8 @@ class AsyncNSLSolver:
                 last_exc = NSLSolverError("Request timed out.")
             except aiohttp.ClientConnectionError:
                 last_exc = NSLSolverError("Connection error.")
+            except aiohttp.ClientError as exc:
+                last_exc = NSLSolverError(f"Transport error: {exc}")
             else:
                 break  # pragma: no cover
 
@@ -276,7 +327,7 @@ class AsyncNSLSolver:
 
         try:
             body = json.loads(response_text)
-        except (ValueError, KeyError):
+        except ValueError:
             body = {}
 
         message = body.get("error", body.get("message", response_text))
